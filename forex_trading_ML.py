@@ -16,6 +16,7 @@ import os
 from torch.distributions import Categorical
 from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
+import glob
 import matplotlib.dates as mdates
 
 # Define the ForexTradingEnv class, inheriting from gym.Env to create a custom trading environment
@@ -821,7 +822,7 @@ def validate_agent(agent_save_filename, testing_set):
         # Return the final profit from the out-of-sample evaluation as a float, the environment instance, and the total test reward for further analysis or use
         return total_test_reward, final_profit_evaluation
 
-def train_agent_in_sample(episodes, training_set, testing_set):
+def train_agent_in_sample(episodes, training_set, testing_set, Pair, timeframe_str):
         # Instantiate the trading environment with in-sample data
         env_in_sample = ForexTradingEnv(training_set)
         # Initialize the best validation score to a high number (effectively infinity)
@@ -914,7 +915,7 @@ def train_agent_in_sample(episodes, training_set, testing_set):
                 episodes_without_improvement = 0  # Reset the counter for episodes without improvement.
 
                 # Define the path and filename where the current best model state will be saved.
-                agent_save_filename_best = os.path.join(f"agent_state_best.pkl")
+                agent_save_filename_best = os.path.join(f"agent_state_best_{Pair}_{timeframe_str}.pkl")
                 
                 agent.save_state(agent_save_filename_best)  # Save the current best model state to the specified path.
                 
@@ -1237,7 +1238,25 @@ def split_and_save_dataset(dataset, timeframe, pair):
     split_index_train_val = int(len(training_set) * 0.8)
     final_training_set = training_set.iloc[:split_index_train_val]
     validation_set = training_set.iloc[split_index_train_val:]
-    
+
+    # Search for CSV files starting with "validation"
+    validation_files = glob.glob('validation*.csv')
+
+    # Search for CSV files starting with "training"
+    training_files = glob.glob('training*.csv')
+
+    # Search for CSV files starting with "testing"
+    testing_files = glob.glob('testing*.csv')
+
+    for file in validation_files:
+        os.remove(file)
+
+    for file in training_files:
+        os.remove(file)
+
+    for file in testing_files:
+        os.remove(file)
+
     # Save the sets into CSV files
     final_training_set.to_csv(f'training_{pair}_{timeframe}_data.csv', index=True)
     validation_set.to_csv(f'validation_{pair}_{timeframe}_data.csv', index=True)
@@ -1282,8 +1301,7 @@ def training_ppo_model(choice):
         # Prompt the user for the currency pair they're interested in and standardize the input
         Pair = input("Enter the currency pair (e.g., GBPUSD, EURUSD): ").strip().upper()
 
-        # Ask the user for start and end date for training
-        training_start_date = one_month_before_str
+        training_start_date = input("Enter the start date of the data: ")
         training_end_date = current_date
 
         # Fetch and prepare the FX data for the specified currency pair and timeframe
@@ -1299,17 +1317,42 @@ def training_ppo_model(choice):
 
         training_set, testing_set = split_and_save_dataset(dataset, timeframe_str, Pair)
     elif choice == '3':
-        testing_set = read_csv_to_dataframe('testing_EURUSD_1H_data.csv')
-        training_set = read_csv_to_dataframe('training_EURUSD_1H_data.csv')
+        # Search for CSV files starting with "validation"
+        validation_files = glob.glob('validation*.csv')
+
+        # Search for CSV files starting with "training"
+        training_files = glob.glob('training*.csv')
+
+        for file in validation_files:
+            parts = file.split('_')
+
+            # Extract the pair and timeframe
+            Pair = parts[1]
+            timeframe_str = parts[2]
+
+            testing_set = read_csv_to_dataframe(file)
+
+        for file in training_files:
+            training_set = read_csv_to_dataframe(file)
 
     episodes = 10
 
-    train_agent_in_sample(episodes, training_set, testing_set)
+    train_agent_in_sample(episodes, training_set, testing_set, Pair, timeframe_str)
 
 def evaluate_ppo_model():
-    evaluation_dataset = read_csv_to_dataframe('testing_EURUSD_1H_data.csv')
+    # Search for CSV files starting with "testing"
+    testing_files = glob.glob('testing*.csv')
 
-    evaluate_model("agent_state_best.pkl", evaluation_dataset)
+    for file in testing_files:
+        parts = file.split('_')
+
+        # Extract the pair and timeframe
+        Pair = parts[1]
+        timeframe_str = parts[2]
+
+        evaluation_dataset = read_csv_to_dataframe(file)
+    
+    evaluate_model(f"agent_state_best_{Pair}_{timeframe_str}.pkl", evaluation_dataset)
 
 def main_menu():
     while True:
