@@ -1,0 +1,8 @@
+Final Balance: 9799.73
+Final Profit: -200.27
+Maximum Drawdown: 2.20%
+Highest Daily Loss: -0.22%
+Profit Factor: 1.19
+Number of Closed Trades: 17
+Percent Profitable: 35.29%
+Total Reward: -116.40248657198309
